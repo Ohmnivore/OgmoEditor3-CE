@@ -44,7 +44,7 @@ class DecalSelectionPanel extends SidePanel
 
 	override public function refresh()
 	{
-		var sel = layerEditor.selected;
+		var sel = layerEditor.selection.getSelected();
 
 		// list of entities
 		{
@@ -79,9 +79,14 @@ class DecalSelectionPanel extends SidePanel
 				item.onclick = function (_)
 				{
 					if (OGMO.ctrl)
-						layerEditor.toggleSelected(arr);
+					{
+						layerEditor.selection.toggleSelection(arr);
+					}
 					else
-						layerEditor.selected = arr;
+					{
+						layerEditor.selection.clear();
+						layerEditor.selection.addSelection(arr);
+					}
 					layerEditor.selectedChanged = true;
 					EDITOR.dirty();
 				};

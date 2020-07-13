@@ -1,5 +1,6 @@
 package modules.entities.tools;
 
+import level.editor.Selection.SelectionMode;
 import modules.entities.EntityLayerEditor.EntityNodeID;
 
 class LineProjectionData
@@ -27,15 +28,27 @@ class LineProjectionData
 
 class EntityNodeTool extends EntityTool
 {
-
-	public var editing:Array<Vector> = [];
-	public var lastPos:Vector = new Vector();
-
 	private var closestProjection:LineProjectionData = null;
 	private var lastClosestProjection:LineProjectionData = null;
 
+	override public function deactivated()
+	{
+		layerEditor.nodeSelection.clearHover();
+	}
+
 	override function drawOverlay()
 	{
+		var rect = layerEditor.nodeSelection.getRect();
+		var mode = layerEditor.nodeSelection.getMode();
+		
+		if (rect != null)
+		{
+			if (mode == SelectionMode.SELECT)
+				EDITOR.overlay.drawRect(rect.left, rect.top, rect.width, rect.height, Color.green.x(0.2));
+			else if (mode == SelectionMode.DELETE)
+				EDITOR.overlay.drawRect(rect.left, rect.top, rect.width, rect.height, Color.red.x(0.2));
+		}
+
 		if (closestProjection != null && closestProjection.active())
 		{
 			var x = closestProjection.projection.x;
@@ -43,38 +56,29 @@ class EntityNodeTool extends EntityTool
 			var size = 8.0;
 			EDITOR.overlay.drawRect(x - size / 2.0, y - size / 2.0, size, size, Color.green.x(0.5));
 		}
+
+		for (node in layerEditor.nodeSelection.getSelected())
+		{
+			var ent = layer.entities.getByID(node.entityID);
+			if (ent != null)
+			{
+				var pos = node.getNodePosition(ent);
+				if (pos != null)
+					ent.drawNodeSelectionBox(pos);
+			}
+		}
 	}
 
 	override public function onMouseMove(pos:Vector)
 	{
+		var hovering = layerEditor.nodeSelection.getHovered().length > 0;
+
+		layerEditor.nodeSelection.onMouseMove(pos);
+
 		closestProjection = null;
 
-		var entities = layer.entities.getGroupForNodes(layerEditor.selection);
-		var foundOne = false;
-		for (e in entities)	// Find hovered node
+		if (!hovering && layerEditor.nodeSelection.getMode() == SelectionMode.NONE)
 		{
-			if (e.checkPoint(pos))
-			{
-				foundOne = true;
-				if (layerEditor.hoveredNode.set(e.id, EntityNodeID.ROOT_NODE_ID))
-					EDITOR.dirty();
-				break;
-			}
-
-			var nodeIdx = e.getNodeAt(pos);
-			if (nodeIdx != null)
-			{
-				foundOne = true;
-				if (layerEditor.hoveredNode.set(e.id, nodeIdx))
-					EDITOR.dirty();
-				break;
-			}
-		}
-		if (!foundOne)	// Find closest projection
-		{
-			if (layerEditor.hoveredNode.set(EntityNodeID.ENTITY_NONE_ID))
-				EDITOR.dirty();
-
 			var processProjection = function(projection:Vector, entityID:Int, nodeIdx:Int)
 			{
 				var distance = Vector.dist(pos, projection);
@@ -116,114 +120,64 @@ class EntityNodeTool extends EntityTool
 				EDITOR.overlayDirty();
 			}
 		}
-
-		if (editing.length > 0)
-		{
-			if (!OGMO.ctrl) layer.snapToGrid(pos, pos);
-			if (!pos.equals(lastPos))
-			{
-				for (p in editing)
-					p.add(pos.clone().sub(lastPos));
-				EDITOR.dirty();
-			}
-		}
-
-		pos.clone(lastPos);
-
-		// TODO - this is unused code - is there a feature behind it? -01010111
-		/*else
-		{
-			var entities = layer.entities.getGroupForNodes(layerEditor.selection);
-		}*/
 	}
 
 	override public function onMouseDown(pos:Vector)
 	{
-		editing = [];
-		var entities = layer.entities.getGroupForNodes(layerEditor.selection);
+		var hovering = layerEditor.nodeSelection.getHovered().length > 0;
 
-		if (entities.length > 0)
+		layerEditor.nodeSelection.onMouseDown(pos);
+
+		if (!hovering && layerEditor.nodeSelection.getMode() == SelectionMode.NONE)
 		{
 			EDITOR.locked = true;
 			EDITOR.level.store("add node(s)");
 
-			//Look for an existing entity or node
+			if (!OGMO.ctrl) layer.snapToGrid(pos, pos);
+			if (!OGMO.shift) layerEditor.nodeSelection.clear();
+
+			var entities = layer.entities.getGroupForNodes(layerEditor.selection);
 			for (e in entities)
 			{
-				if (e.checkPoint(pos))
-					editing.push(e.position);
-
-				var nodeIdx = e.getNodeAt(pos);
-				if (nodeIdx != null)
-					editing.push(e.nodes[nodeIdx]);
-			}
-
-			if (!OGMO.ctrl) layer.snapToGrid(pos, pos);
-
-			//If no existing nodes, create them
-			if (editing.length == 0)
-			{
-				for (e in entities)
+				if (e.canAddNode)
 				{
-					if (e.canAddNode)
+					if (closestProjection != null && closestProjection.active() && e.id == closestProjection.entityID)
 					{
-						if (closestProjection != null && closestProjection.active() && e.id == closestProjection.entityID)
-						{
-							var n = closestProjection.projection.clone();
-							if (!OGMO.ctrl) layer.snapToGrid(n, n);
-							e.nodes.insert(closestProjection.nodeIdx, n);
-							editing.push(n);
-						}
-						else
-						{
-							var n = e.addNodeAt(pos);
-							editing.push(n);
-						}
+						var n = closestProjection.projection.clone();
+						if (!OGMO.ctrl) layer.snapToGrid(n, n);
+						e.nodes.insert(closestProjection.nodeIdx, n);
+
+						var newEntry = new EntityNodeID(e.id, closestProjection.nodeIdx);
+						layerEditor.nodeSelection.adjustSelectionIndex(newEntry, true);
+						layerEditor.nodeSelection.addSelected(newEntry);
+					}
+					else
+					{
+						e.addNodeAt(pos);
+						var newEntry = new EntityNodeID(e.id, e.nodes.length - 1);
+						layerEditor.nodeSelection.addSelected(newEntry);
 					}
 				}
-
-				EDITOR.dirty();
 			}
-
-			pos.clone(lastPos);
 		}
 	}
 
 	override public function onMouseUp(pos:Vector)
 	{
+		layerEditor.nodeSelection.onMouseUp(pos);
 		EDITOR.locked = false;
-		editing = [];
 	}
 
 	override public function onRightDown(pos:Vector)
 	{
-		var entities = layer.entities.getGroupForNodes(layerEditor.selection);
-		if (entities.length == 0) return;
-		var nodes = [];
-
-		//Look for an existing node
-		for (e in entities)
-		{
-			var nodeIdx = e.getNodeAt(pos);
-			if (nodeIdx != null) nodes.push({ entity: e, node: e.nodes[nodeIdx] });
-		}
-
-		// delete them
-		if (nodes.length > 0)
-		{
-			EDITOR.level.store("deleted node");
-			for (n in nodes)
-			{
-				var entity:Entity = n.entity;
-				for (j in 0...entity.nodes.length) if (entity.nodes[j] == n.node) entity.nodes.splice(j, 1); // TODO - dunno if comparison will work here, might do `equals()`? -01010111
-			}
-
-			layerEditor.hoveredNode.set(EntityNodeID.ENTITY_NONE_ID);
-			EDITOR.dirty();
-		}
+		layerEditor.nodeSelection.onRightDown(pos);
 	}
 
-	override public function onRightUp(pos:Vector) {}
+	override public function onRightUp(pos:Vector)
+	{
+		layerEditor.nodeSelection.onRightUp(pos);
+	}
+
 	override public function getIcon():String return "entity-nodes";
 	override public function getName():String return "Add Node";
 	override public function keyToolAlt():Int return 1;

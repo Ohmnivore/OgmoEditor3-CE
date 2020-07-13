@@ -302,6 +302,16 @@ class Entity
 		EDITOR.overlay.drawLine(corners[2], corners[0], Color.green);
 	}
 
+	public function drawNodeSelectionBox(?position:Vector)
+	{
+		var pos = position == null ? this.position : position;
+		var corners = getCorners(pos, 4 / EDITOR.level.zoom);
+		EDITOR.overlay.drawLine(corners[0], corners[1], Color.green);
+		EDITOR.overlay.drawLine(corners[1], corners[3], Color.green);
+		EDITOR.overlay.drawLine(corners[2], corners[3], Color.green);
+		EDITOR.overlay.drawLine(corners[2], corners[0], Color.green);
+	}
+
 	/*
 		NODES
 	*/
@@ -419,7 +429,7 @@ class Entity
 
 		//Check rect center against Entity
 		var rectCenter = rect.center;
-		if (checkPoint(rectCenter))
+		if (checkPoint(rectCenter, ownPos))
 			return true;
 
 		//Check Entity corner points against AABB
