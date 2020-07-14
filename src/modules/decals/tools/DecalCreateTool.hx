@@ -50,14 +50,9 @@ class DecalCreateTool extends DecalTool
 		layer.decals.push(created);
 
 		if (OGMO.keyCheckMap[Keys.Shift])
-		{
-			layerEditor.selection.addSelected(created);
-		}
+			layerEditor.selection.addSelection([created]);
 		else
-		{
-			layerEditor.selection.clear();
-			layerEditor.selection.addSelected(created);
-		}
+			layerEditor.selection.setSelection([created]);
 	}
 
 	override public function onMouseUp(pos:Vector)

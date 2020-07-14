@@ -12,7 +12,7 @@ class DecalRotateTool extends DecalTool
 
 	override public function onMouseDown(pos:Vector)
 	{
-		decals = layerEditor.selection.getSelected();
+		decals = layerEditor.selection.selected;
 		if (decals.length == 0) return;
 		origin = new Vector();
 		for (decal in decals)
@@ -52,7 +52,7 @@ class DecalRotateTool extends DecalTool
 		var angle = Calc.angleTo(origin, pos);
 		var initial = Calc.angleTo(origin, last);
 		for (decal in decals) decal.rotate(angle - initial);
-		layerEditor.selectedChanged = true;
+		layerEditor.selectionModified = true;
 		EDITOR.dirty();
 		pos.clone(last);
 	}
@@ -60,7 +60,7 @@ class DecalRotateTool extends DecalTool
 	override public function onRightDown(pos:Vector)
 	{
 		var changed = false;
-		for (decal in layerEditor.selection.getSelected()) if (decal.rotation != 0)
+		for (decal in layerEditor.selection.selected) if (decal.rotation != 0)
 		{
 			if (!changed)
 			{
@@ -69,7 +69,7 @@ class DecalRotateTool extends DecalTool
 			}
 			decal.rotation = 0;
 		}
-		layerEditor.selectedChanged = true;
+		layerEditor.selectionModified = true;
 		EDITOR.dirty();
 	}
 
@@ -119,6 +119,6 @@ class DecalRotateTool extends DecalTool
 	override public function keyToolCtrl():Int return 0;
 	override public function keyToolAlt():Int return 1;
 	override public function keyToolShift():Int return 2;
-	override function isAvailable() return (cast layerEditor.template : DecalLayerTemplate).rotatable && layerEditor.selection.getSelected().length > 0;
+	override function isAvailable() return (cast layerEditor.template : DecalLayerTemplate).rotatable && layerEditor.selection.selected.length > 0;
 
 }

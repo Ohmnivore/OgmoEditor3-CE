@@ -9,7 +9,7 @@ class DecalLayerEditor extends LayerEditor
 {
 	public var brush:Texture;
 	public var selection:DecalLayerSelection;
-	public var selectedChanged:Bool = true;
+	public var selectionModified:Bool = false;
 
 	public function new(id:Int)
 	{
@@ -49,21 +49,23 @@ class DecalLayerEditor extends LayerEditor
 			}
 		}
 
-		if (active) for (decal in selection.getHovered()) decal.drawSelectionBox(false);
+		if (active) for (decal in selection.hovered) decal.drawSelectionBox(false);
 	}
 	
 	override function drawOverlay()
 	{
-		if (selection.getSelected().length <= 0)
+		if (selection.selected.length <= 0)
 			return;
-		for (decal in selection.getSelected())
+		for (decal in selection.selected)
 			decal.drawSelectionBox(true);
 	}
 
 	override function loop()
 	{
-		if (!selectedChanged) return;
-		selectedChanged = false;
+		if (!selectionModified && !selection.selectionChanged)
+			return;
+		selectionModified = false;
+		selection.selectionChanged = false;
 		selectionPanel.refresh();
 		EDITOR.dirty();
 	}
@@ -71,7 +73,6 @@ class DecalLayerEditor extends LayerEditor
 	override function refresh()
 	{
 		selection.clear();
-		selectedChanged = true;
 	}
 
 	override function createPalettePanel():SidePanel
@@ -126,11 +127,6 @@ class DecalLayerSelection extends LevelSelection<Decal>
 		layerEditor.layer.snapToGrid(pos, into);
 	}
 
-	override private function selectedChanged()
-	{
-		layerEditor.selectedChanged = true;
-	}
-
 	override private function move(items:Array<Decal>, delta:Vector, firstChange:Bool)
 	{
 		if (firstChange)
@@ -138,6 +134,8 @@ class DecalLayerSelection extends LevelSelection<Decal>
 
 		for (decal in items)
 			decal.position.add(delta);
+
+		layerEditor.selectionModified = true;
 	}
 
 	override private function copy(items:Array<Decal>)
@@ -149,13 +147,11 @@ class DecalLayerSelection extends LevelSelection<Decal>
 
 	override private function cut(items:Array<Decal>)
 	{
-		clipboard = [];
-		for (decal in items)
-			clipboard.push(decal);
+		copy(items);
 
 		EDITOR.level.store("cut decals");
-		for (decal in items.copy())
-			layerEditor.remove(decal);
+
+		delete_internal(items);
 	}
 
 	override private function paste()
@@ -165,14 +161,17 @@ class DecalLayerSelection extends LevelSelection<Decal>
 
 		EDITOR.level.store("pasted decals");
 
-		if (!shift())
-			selected = [];
+		var newDecals = [];
 		for (decal in clipboard)
 		{
 			var clone = new Decal(decal.position.clone(), decal.path, decal.texture, decal.origin.clone(), decal.scale.clone(), decal.rotation);
 			(cast layerEditor.layer:DecalLayer).decals.push(clone);
-			selected.push(clone);
+			newDecals.push(clone);
 		}
+		if (shift())
+			addSelection(newDecals);
+		else
+			setSelection(newDecals);
 	}
 
 	override private function duplicate(items:Array<Decal>)
@@ -187,9 +186,9 @@ class DecalLayerSelection extends LevelSelection<Decal>
 			newSelection.push(clone);
 		}
 		if (shift())
-			selected = selected.concat(newSelection);
+			addSelection(newSelection);
 		else
-			selected = newSelection;
+			setSelection(newSelection);
 	}
 
 	override private function toggleMassSelect()
@@ -198,20 +197,32 @@ class DecalLayerSelection extends LevelSelection<Decal>
 
 		if (selected.length == layer.decals.length)
 		{
-			selected = [];
+			clear();
 		}
 		else
 		{
-			selected = [];
+			var newSelection = [];
 			for (decal in (cast layerEditor.layer:DecalLayer).decals)
-				selected.push(decal);
+				newSelection.push(decal);
+			setSelection(newSelection);
 		}
 	}
 
 	override private function delete(items:Array<Decal>)
 	{
 		EDITOR.level.store("delete decals");
-		for (decal in items.copy())
+
+		delete_internal(items);
+	}
+
+	private function delete_internal(items:Array<Decal>)
+	{
+		items = items.copy();
+		var toRemove = [];
+		for (decal in items)
+			toRemove.push(decal);
+		removeSelection(toRemove);
+		for (decal in items)
 			layerEditor.remove(decal);
 	}
 }

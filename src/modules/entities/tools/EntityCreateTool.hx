@@ -34,14 +34,9 @@ class EntityCreateTool extends EntityTool
 		layer.entities.add(created);
 
 		if (OGMO.keyCheckMap[Keys.Shift])
-		{
-			layerEditor.selection.addSelected(created.id);
-		}
+			layerEditor.selection.addSelection([created.id]);
 		else
-		{
-			layerEditor.selection.clear();
-			layerEditor.selection.addSelected(created.id);
-		}
+			layerEditor.selection.setSelection([created.id]);
 	}
 
 	override public function onMouseUp(pos:Vector)

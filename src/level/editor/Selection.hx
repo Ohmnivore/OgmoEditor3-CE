@@ -10,11 +10,22 @@ enum SelectionMode
 
 class Selection<T>
 {
-	private var selected:Array<T> = [];
-	private var hovered:Array<T> = [];
+	public var selected(get, never):Array<T>;
+	private var _selected:Array<T> = [];
+	function get_selected():Array<T> return _selected;
+
+	public var hovered(get, never):Array<T>;
+	private var _hovered:Array<T> = [];
+	function get_hovered():Array<T> return _hovered;
+
+	public var mode(get, never):SelectionMode;
+	private var _mode:SelectionMode = NONE;
+	function get_mode():SelectionMode return _mode;
+
+	public var selectionChanged = false;
+
 	private var dragStart:Vector = null;
 	private var lastPosition:Vector = null;
-	private var mode:SelectionMode = NONE;
 	private var firstChange:Bool = false;
 
 	private var canDragSelect:Bool = true;
@@ -30,18 +41,17 @@ class Selection<T>
 	{
 		lastPosition = position;
 
-		if (mode == SelectionMode.SELECT || mode == SelectionMode.DELETE)
+		if (_mode == SelectionMode.SELECT || _mode == SelectionMode.DELETE)
 		{
 			var rect = getRect();
 			if (rect == null)
 				rect = new Rectangle(lastPosition.x, lastPosition.y, 1, 1);
 			var hit = getOverlap(rect);
-			hovered = hit;
+			_hovered = hit;
 
 			dirty();
-			selectedChanged();
 		}
-		else if (mode == SelectionMode.MOVE)
+		else if (_mode == SelectionMode.MOVE)
 		{
 			if (!ctrl())
 				snapToGrid(position, position);
@@ -49,42 +59,40 @@ class Selection<T>
 			if (!position.equals(dragStart))
 			{
 				var diff = new Vector(position.x - dragStart.x, position.y - dragStart.y);
-				move(selected, diff, firstChange);
+				move(_selected, diff, firstChange);
 				if (firstChange)
 					firstChange = false;
 				dragStart = position;
 
 				dirty();
-				selectedChanged();
 			}
 		}
-		else if (mode == SelectionMode.NONE)
+		else if (_mode == SelectionMode.NONE)
 		{
 			var rect = getRect();
 			if (rect == null)
 				rect = new Rectangle(lastPosition.x, lastPosition.y, 1, 1);
 			var hit = getOverlap(rect);
-			var isEqual = hit.length == hovered.length;
+			var isEqual = hit.length == _hovered.length;
 			var i = 0;
 			while (isEqual && i < hit.length)
 			{
-				if (indexOf_internal(hovered, hit[i]) >= 0)
+				if (indexOf_internal(_hovered, hit[i]) >= 0)
 					isEqual = false;
 				i++;
 			}
 				
 			if (!isEqual)
 			{
-				hovered = hit;
+				_hovered = hit;
 				dirty();
-				selectedChanged();
 			}
 		}
 	}
 
 	public function onMouseDown(position:Vector)
 	{
-		hovered = [];
+		_hovered = [];
 
 		lastPosition = position;
 		dragStart = lastPosition;
@@ -99,15 +107,15 @@ class Selection<T>
 		if (hit.length == 0)
 		{
 			if (canDragSelect)
-				mode = SelectionMode.SELECT;
+				_mode = SelectionMode.SELECT;
 		}
 		else if (shift())
 		{
-			toggleSelection(hit);
-			if (selected.length > 0)
+			toggle(hit);
+			if (_selected.length > 0)
 				startMove();
 			else
-				mode = SelectionMode.NONE;
+				_mode = SelectionMode.NONE;
 		}
 		else if (containsAny(hit))
 		{
@@ -115,21 +123,18 @@ class Selection<T>
 		}
 		else
 		{
-			selected = hit;
+			setSelection(hit);
 			startMove();
 		}
-
-		dirty();
-		selectedChanged();
 	}
 
 	public function onMouseUp(position:Vector)
 	{
-		hovered = [];
+		_hovered = [];
 
 		lastPosition = position;
 
-		if (mode == SelectionMode.SELECT)
+		if (_mode == SelectionMode.SELECT)
 		{
 			var rect = getRect();
 			if (rect == null)
@@ -148,18 +153,17 @@ class Selection<T>
 			}
 
 			if (shift())
-				toggleSelection(hits);
+				toggle(hits);
 			else
-				selected = hits;
+				setSelection(hits);
 
-			mode = SelectionMode.NONE;
+			_mode = SelectionMode.NONE;
 
 			overlayDirty();
-			selectedChanged();
 		}
-		else if (mode == SelectionMode.MOVE)
+		else if (_mode == SelectionMode.MOVE)
 		{
-			mode = SelectionMode.NONE;
+			_mode = SelectionMode.NONE;
 		}
 	}
 
@@ -167,20 +171,20 @@ class Selection<T>
 	{
 		lastPosition = position;
 		dragStart = lastPosition;
-		mode = SelectionMode.DELETE;
+		_mode = SelectionMode.DELETE;
 	}
 
 	public function onRightUp(position:Vector)
 	{
 		lastPosition = position;
 
-		if (mode == SelectionMode.DELETE)
+		if (_mode == SelectionMode.DELETE)
 		{
 			var rect = getRect();
 			if (rect == null)
 				rect = new Rectangle(lastPosition.x, lastPosition.y, 1, 1);
 
-			mode = SelectionMode.NONE;
+			_mode = SelectionMode.NONE;
 			overlayDirty();
 
 			var items = getOverlap(rect);
@@ -190,55 +194,49 @@ class Selection<T>
 			delete(items);
 
 			dirty();
-			selectedChanged();
+			selectionChanged = true;
 		}
 	}
 
 	public function onKeyDown(key:Int):Bool
 	{
-		if ((key == Keys.Backspace || key == Keys.Delete) && selected.length > 0)
+		if ((key == Keys.Backspace || key == Keys.Delete) && _selected.length > 0)
 		{
-			delete(selected);
+			delete(_selected);
 			dirty();
-			selectedChanged();
 
 			return true;
 		}
 
 		if (ctrl())
 		{
-			if (key == Keys.C && selected.length > 0)
+			if (key == Keys.C && _selected.length > 0)
 			{
-				copy(selected);
-			}
-			else if (key == Keys.X && selected.length > 0)
-			{
-				cut(selected);
+				copy(_selected);
 				dirty();
-				selectedChanged();
+			}
+			else if (key == Keys.X && _selected.length > 0)
+			{
+				cut(_selected);
+				dirty();
 			}
 			else if (key == Keys.V)
 			{
 				paste();
 				dirty();
-				selectedChanged();
 			}
-			else if (key == Keys.D && selected.length > 0)
+			else if (key == Keys.D && _selected.length > 0)
 			{
-				duplicate(selected);
+				duplicate(_selected);
 				dirty();
-				selectedChanged();
 			}
 			else if (key == Keys.A)
 			{
 				toggleMassSelect();
 				dirty();
-				selectedChanged();
 			}
 			else
-			{
 				return false;
-			}
 
 			return true;
 		}
@@ -249,24 +247,9 @@ class Selection<T>
 
 	// Util
 
-	public function getSelected():Array<T>
-	{
-		return selected;
-	}
-
-	public function getHovered():Array<T>
-	{
-		return hovered;
-	}
-
-	public function getMode():SelectionMode
-	{
-		return mode;
-	}
-
 	public function getRect():Rectangle
 	{
-		if (mode == SELECT || mode == DELETE)
+		if (_mode == SELECT || _mode == DELETE)
 			if (dragStart != null && lastPosition != null && !dragStart.equals(lastPosition))
 				return Rectangle.fromPoints(dragStart, lastPosition);
 		return null;
@@ -274,43 +257,88 @@ class Selection<T>
 
 	public function remove(item:T)
 	{
-		remove_internal(hovered, item);
-		remove_internal(selected, item);
+		var removed = remove_internal(_hovered, item);
+		remove_internal(_selected, item);
+
+		if (removed)
+		{
+			dirty();
+			selectionChanged = true;
+		}
+	}
+
+	public function removeSelection(items:Array<T>)
+	{
+		var removed = false;
+
+		for (item in items)
+			if (remove_internal(_selected, item))
+				removed = true;
+
+		if (removed)
+		{
+			dirty();
+			selectionChanged = true;
+		}
 	}
 
 	public function clear()
 	{
-		hovered.resize(0);
-		selected.resize(0);
+		var removed = _selected.length > 0;
+
+		_hovered.resize(0);
+		_selected.resize(0);
+		dirty();
+
+		if (removed)
+			selectionChanged = true;
 	}
 
 	public function clearHover()
 	{
-		hovered.resize(0);
-	}
-
-	public function addSelected(item:T)
-	{
-		selected.push(item);
+		_hovered.resize(0);
 		dirty();
-		selectedChanged();
 	}
 
 	public function addSelection(items:Array<T>)
 	{
-		selected = selected.concat(items);
-		dirty();
-		selectedChanged();
+		_selected = _selected.concat(items);
+
+		if (items.length > 0)
+		{
+			dirty();
+			selectionChanged = true;
+		}
 	}
 
-	public function toggleSelection(selection:Array<T>)
+	public function setSelection(items:Array<T>)
 	{
-		return toggleSelection_internal(selected, selection);
+		var same = isSame(_selected, items);
+		_selected = items;
+
+		if (!same)
+		{
+			dirty();
+			selectionChanged = true;
+		}
+	}
+
+	public function toggle(selection:Array<T>):Bool
+	{
+		var changed = toggle_internal(_selected, selection);
+
+		if (changed)
+		{
+			dirty();
+			selectionChanged = true;
+		}
+
+		return changed;
 	}
 
 	public function containsAny(list:Array<T>):Bool
 	{
-		return containsAny_internal(selected, list);
+		return containsAny_internal(_selected, list);
 	}
 
 
@@ -318,24 +346,34 @@ class Selection<T>
 
 	private function startMove()
 	{
-		mode = SelectionMode.MOVE;
+		_mode = SelectionMode.MOVE;
 		firstChange = true;
 		if (!ctrl())
 			snapToGrid(dragStart, dragStart);
 	}
 
-	private function toggleSelection_internal(group:Array<T>, selection:Array<T>)
+	private function toggle_internal(group:Array<T>, selection:Array<T>):Bool
 	{
+		var changed = false;
+
 		var removing:Array<T> = [];
 		for (item in selection)
 		{
 			if (indexOf_internal(group, item) >= 0)
+			{
 				removing.push(item);
+				changed = true;
+			}
 			else
+			{
 				group.push(item);
+				changed = true;
+			}
 		}
 		for (item in removing)
 			remove_internal(group, item);
+
+		return changed;
 	}
 
 	private function containsAny_internal(group:Array<T>, list:Array<T>):Bool
@@ -365,81 +403,52 @@ class Selection<T>
 		return false;
 	}
 
+	private function isSame(oldList:Array<T>, newList:Array<T>):Bool
+	{
+		if (oldList.length != newList.length)
+			return false;
+
+		var same = true;
+		for (i in 0...oldList.length)
+		{
+			if (!isEqual(oldList[i], newList[i]))
+			{
+				same = false;
+				break;
+			}
+		}
+
+		return same;
+	}
+
 
 	// User-implemented
 
-	private function isEqual(lhs:T, rhs:T)
-	{
-		return false;
-	}
+	private function isEqual(lhs:T, rhs:T) { return false; }
 
-	private function ctrl():Bool
-	{
-		return false;
-	}
+	private function ctrl():Bool { return false; }
 
-	private function shift():Bool
-	{
-		return false;
-	}
+	private function shift():Bool { return false; }
 
-	private function dirty()
-	{
-		
-	}
+	private function dirty() {}
 
-	private function overlayDirty()
-	{
-		
-	}
+	private function overlayDirty() {}
 
-	private function snapToGrid(pos: Vector, into: Vector)
-	{
+	private function snapToGrid(pos: Vector, into: Vector) {}
 
-	}
+	private function getOverlap(rect:Rectangle):Array<T> { return []; }
 
-	private function getOverlap(rect:Rectangle):Array<T>
-	{
-		return [];
-	}
+	private function move(items:Array<T>, delta:Vector, firstChange:Bool) {}
 
-	private function selectedChanged()
-	{
-		
-	}
+	private function copy(items:Array<T>) {}
 
-	private function move(items:Array<T>, delta:Vector, firstChange:Bool)
-	{
-		
-	}
+	private function cut(items:Array<T>) {}
 
-	private function copy(items:Array<T>)
-	{
-		
-	}
+	private function paste() {}
 
-	private function cut(items:Array<T>)
-	{
-		
-	}
+	private function duplicate(items:Array<T>) {}
 
-	private function paste()
-	{
-		
-	}
+	private function toggleMassSelect() {}
 
-	private function duplicate(items:Array<T>)
-	{
-		
-	}
-
-	private function toggleMassSelect()
-	{
-		
-	}
-
-	private function delete(items:Array<T>)
-	{
-		
-	}
+	private function delete(items:Array<T>) {}
 }

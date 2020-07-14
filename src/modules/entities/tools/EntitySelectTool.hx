@@ -8,7 +8,7 @@ class EntitySelectTool extends EntityTool
 	override public function drawOverlay()
 	{
 		var rect = layerEditor.selection.getRect();
-		var mode = layerEditor.selection.getMode();
+		var mode = layerEditor.selection.mode;
 		
 		if (rect != null)
 		{

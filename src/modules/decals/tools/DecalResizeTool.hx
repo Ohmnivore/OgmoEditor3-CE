@@ -23,7 +23,7 @@ class DecalResizeTool extends DecalTool
 
 	override public function onMouseDown(pos:Vector)
 	{
-		decals = layerEditor.selection.getSelected();
+		decals = layerEditor.selection.selected;
 
 		if (decals.length == 0) return;
 		pos.clone(mousePos);
@@ -48,7 +48,7 @@ class DecalResizeTool extends DecalTool
 	override public function onRightDown(pos:Vector)
 	{
 		var changed = false;
-		for (decal in layerEditor.selection.getSelected()) if (decal.scale.x != 1 || decal.scale.y != 1)
+		for (decal in layerEditor.selection.selected) if (decal.scale.x != 1 || decal.scale.y != 1)
 		{
 			if (!changed)
 			{
@@ -57,7 +57,7 @@ class DecalResizeTool extends DecalTool
 			}
 			decal.scale.set(1, 1);
 		}
-		layerEditor.selectedChanged = true;
+		layerEditor.selectionModified = true;
 		EDITOR.dirty();
 	}
 
@@ -82,7 +82,7 @@ class DecalResizeTool extends DecalTool
 
 			for (d in decals) d.resize(new Vector(pos.x - lastPos.x, pos.y - lastPos.y));
 
-			layerEditor.selectedChanged = true;
+			layerEditor.selectionModified = true;
 			EDITOR.dirty();
 			pos.clone(lastPos);
 		}
@@ -93,6 +93,6 @@ class DecalResizeTool extends DecalTool
 	override public function keyToolCtrl():Int return resizing ? -1 : 0;
 	override public function keyToolAlt():Int return 1;
 	override public function keyToolShift():Int return 3;
-	override function isAvailable():Bool return (cast layerEditor.template : DecalLayerTemplate).scaleable && layerEditor.selection.getSelected().length > 0;
+	override function isAvailable():Bool return (cast layerEditor.template : DecalLayerTemplate).scaleable && layerEditor.selection.selected.length > 0;
 
 }

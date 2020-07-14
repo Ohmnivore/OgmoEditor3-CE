@@ -13,8 +13,8 @@ class EntityLayerEditor extends LayerEditor
 	public var brush:Int = -1;
 	public var entities(get, never):EntityList;
 	public var selection:EntityLayerSelection;
+	public var selectionModified:Bool = false;
 	public var nodeSelection:EntityLayerNodeSelection;
-	public var selectionChanged:Bool = false;
 
 	private var entityTexts = new Map<Int, FloatingHTMLPropertyDisplay>();
 
@@ -29,14 +29,14 @@ class EntityLayerEditor extends LayerEditor
 	override function draw()
 	{
 		// Draw Hover
-		if (active && selection.getHovered().length > 0)
+		if (active && selection.hovered.length > 0)
 		{
-			for (ent in entities.getGroup(selection.getHovered()))
+			for (ent in entities.getGroup(selection.hovered))
 				ent.drawHoveredBox();
 		}
-		if (active && nodeSelection.getHovered().length > 0)
+		if (active && nodeSelection.hovered.length > 0)
 		{
-			for (node in nodeSelection.getHovered())
+			for (node in nodeSelection.hovered)
 			{
 				var ent = entities.getByID(node.entityID);
 				if (ent != null)
@@ -111,19 +111,20 @@ class EntityLayerEditor extends LayerEditor
 
 	override function drawOverlay()
 	{
-		if (selection.getSelected().length <= 0)
+		if (selection.selected.length <= 0)
 			return;
-		for (entity in entities.getGroup(selection.getSelected()))
+		for (entity in entities.getGroup(selection.selected))
 			entity.drawSelectionBox();
 	}
 
 	override function loop()
 	{
-		if (selectionChanged)
-			nodeSelection.clear();
-		else
+		if (!selectionModified && !selection.selectionChanged)
 			return;
-		selectionChanged = false;
+		if (selection.selectionChanged)
+			nodeSelection.clear();
+		selectionModified = false;
+		selection.selectionChanged = false;
 		selectionPanel.refresh();
 		EDITOR.dirty();
 	}
@@ -163,7 +164,7 @@ class EntityLayerEditor extends LayerEditor
 		if (selection.onKeyDown(key))
 			return;
 
-		if (selection.getSelected().length == 0)
+		if (selection.selected.length == 0)
 			return;
 
 		switch (key)
@@ -172,7 +173,7 @@ class EntityLayerEditor extends LayerEditor
 				// Swap selected entities' positions with their first nodes
 				if (!OGMO.ctrl || !OGMO.shift) return;
 				var swapped = false;
-				for (e in entities.getGroup(selection.getSelected()))
+				for (e in entities.getGroup(selection.selected))
 				{
 					if (!swapped)
 					{
@@ -187,14 +188,14 @@ class EntityLayerEditor extends LayerEditor
 			case Keys.H:
 				if (OGMO.ctrl) return;
 				EDITOR.level.store("flip entity h");
-				for (e in entities.getGroup(selection.getSelected())) if (e.template.canFlipX) e.flippedX = !e.flippedX;
-				selectionChanged = true;
+				for (e in entities.getGroup(selection.selected)) if (e.template.canFlipX) e.flippedX = !e.flippedX;
+				selectionModified = true;
 				EDITOR.dirty();
 			case Keys.V:
 				if (OGMO.ctrl) return;
 				EDITOR.level.store("flip entity v");
-				for (e in entities.getGroup(selection.getSelected())) if (e.template.canFlipY) e.flippedY = !e.flippedY;
-				selectionChanged = true;
+				for (e in entities.getGroup(selection.selected)) if (e.template.canFlipY) e.flippedY = !e.flippedY;
+				selectionModified = true;
 				EDITOR.dirty();
 		}
 	}
@@ -234,6 +235,7 @@ class EntityLayerSelection extends LevelSelection<Int>
 			{
 				selected.splice(i, 1);
 				i--;
+				selectionChanged = true;
 			}
 			i++;
 		}
@@ -258,11 +260,6 @@ class EntityLayerSelection extends LevelSelection<Int>
 		return ret;
 	}
 
-	override private function selectedChanged()
-	{
-		layerEditor.selectionChanged = true;
-	}
-
 	override private function move(items:Array<Int>, delta:Vector, firstChange:Bool)
 	{
 		if (firstChange)
@@ -274,6 +271,8 @@ class EntityLayerSelection extends LevelSelection<Int>
 			if (ent != null)
 				ent.move(delta);
 		}
+
+		layerEditor.selectionModified = true;
 	}
 
 	override private function copy(items:Array<Int>)
@@ -296,14 +295,7 @@ class EntityLayerSelection extends LevelSelection<Int>
 
 		EDITOR.level.store('cut entities');
 
-		items = items.copy();
-		var toRemove = [];
-		for (id in items)
-		{
-			toRemove.push(layerEditor.entities.getByID(id));
-			remove(id);
-		}
-		layerEditor.entities.removeList(toRemove);
+		delete_internal(items);
 	}
 
 	override private function paste()
@@ -313,8 +305,7 @@ class EntityLayerSelection extends LevelSelection<Int>
 
 		EDITOR.level.store("paste entities");
 
-		if (!shift())
-			selected = [];
+		var newSelection = [];
 		for (ent in clipboard)
 		{
 			var clone = ent.clone();
@@ -322,8 +313,12 @@ class EntityLayerSelection extends LevelSelection<Int>
 				clone.id = layerEditor.layer.downcast(EntityLayer).nextID();
 
 			layerEditor.entities.add(clone);
-			selected.push(clone.id);
+			newSelection.push(clone.id);
 		}
+		if (shift())
+			addSelection(newSelection);
+		else
+			setSelection(newSelection);
 	}
 
 	override private function duplicate(items:Array<Int>)
@@ -342,22 +337,23 @@ class EntityLayerSelection extends LevelSelection<Int>
 			layerEditor.entities.addList(toAdd);
 		}
 		if (shift())
-			selected = selected.concat(newSelection);
+			addSelection(newSelection);
 		else
-			selected = newSelection;
+			setSelection(newSelection);
 	}
 
 	override private function toggleMassSelect()
 	{
 		if (selected.length == layerEditor.entities.count)
 		{
-			selected = [];
+			clear();
 		}
 		else
 		{
-			selected = [];
+			var newSelection = [];
 			for (ent in layerEditor.entities.list)
-				selected.push(ent.id);
+				newSelection.push(ent.id);
+			setSelection(newSelection);
 		}
 	}
 
@@ -365,13 +361,15 @@ class EntityLayerSelection extends LevelSelection<Int>
 	{
 		EDITOR.level.store('delete entities');
 
-		items = items.copy();
+		delete_internal(items);
+	}
+
+	private function delete_internal(items:Array<Int>)
+	{
 		var toRemove = [];
 		for (id in items)
-		{
 			toRemove.push(layerEditor.entities.getByID(id));
-			remove(id);
-		}
+		removeSelection(items);
 		layerEditor.entities.removeList(toRemove);
 	}
 }
@@ -440,7 +438,7 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 	{
 		var ret = [];
 
-		var entities = layerEditor.entities.getGroupForNodes(layerEditor.selection.getSelected());
+		var entities = layerEditor.entities.getGroupForNodes(layerEditor.selection.selected);
 		for (ent in entities)
 		{
 			if (ent.checkRect(rect))
@@ -457,11 +455,6 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 		return ret;
 	}
 
-	override private function selectedChanged()
-	{
-		// Doesn't apply
-	}
-
 	override private function move(items:Array<EntityNodeID>, delta:Vector, firstChange:Bool)
 	{
 		if (firstChange)
@@ -476,6 +469,8 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 				pos.add(delta);
 			}
 		}
+
+		layerEditor.selectionModified = true;
 	}
 
 	override private function copy(items:Array<EntityNodeID>)
@@ -531,8 +526,7 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 		var ent = layerEditor.entities.getByID(lastSelected.entityID);
 		if (ent != null)
 		{
-			if (!shift())
-				selected = [];
+			var newSelection = [];
 
 			for (i in 0...clipboard.length)
 			{
@@ -542,8 +536,13 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 
 				var newEntry = new EntityNodeID(ent.id, idx);
 				layerEditor.nodeSelection.adjustSelectionIndex(newEntry, true);
-				selected.push(newEntry);
+				newSelection.push(newEntry);
 			}
+
+			if (shift())
+				addSelection(newSelection);
+			else
+				setSelection(newSelection);
 		}
 	}
 
@@ -555,23 +554,24 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 	override private function toggleMassSelect()
 	{
 		var sumNodes = 0;
-		var entities = layerEditor.entities.getGroupForNodes(layerEditor.selection.getSelected());
+		var entities = layerEditor.entities.getGroupForNodes(layerEditor.selection.selected);
 		for (ent in entities)
 			sumNodes += ent.nodes.length + 1;
 
 		if (selected.length == sumNodes)
 		{
-			selected = [];
+			clear();
 		}
 		else
 		{
-			selected = [];
+			var newSelection = [];
 			for (ent in entities)
 			{
-				selected.push(new EntityNodeID(ent.id, EntityNodeID.ROOT_NODE_ID));
+				newSelection.push(new EntityNodeID(ent.id, EntityNodeID.ROOT_NODE_ID));
 				for (i in 0...ent.nodes.length)
-					selected.push(new EntityNodeID(ent.id, i));
+					newSelection.push(new EntityNodeID(ent.id, i));
 			}
+			setSelection(newSelection);
 		}
 	}
 

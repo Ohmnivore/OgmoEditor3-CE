@@ -39,7 +39,7 @@ class EntityNodeTool extends EntityTool
 	override function drawOverlay()
 	{
 		var rect = layerEditor.nodeSelection.getRect();
-		var mode = layerEditor.nodeSelection.getMode();
+		var mode = layerEditor.nodeSelection.mode;
 		
 		if (rect != null)
 		{
@@ -57,7 +57,7 @@ class EntityNodeTool extends EntityTool
 			EDITOR.overlay.drawRect(x - size / 2.0, y - size / 2.0, size, size, Color.green.x(0.5));
 		}
 
-		for (node in layerEditor.nodeSelection.getSelected())
+		for (node in layerEditor.nodeSelection.selected)
 		{
 			var ent = layer.entities.getByID(node.entityID);
 			if (ent != null)
@@ -71,13 +71,13 @@ class EntityNodeTool extends EntityTool
 
 	override public function onMouseMove(pos:Vector)
 	{
-		var hovering = layerEditor.nodeSelection.getHovered().length > 0;
+		var hovering = layerEditor.nodeSelection.hovered.length > 0;
 
 		layerEditor.nodeSelection.onMouseMove(pos);
 
 		closestProjection = null;
 
-		if (!hovering && layerEditor.nodeSelection.getMode() == SelectionMode.NONE)
+		if (!hovering && layerEditor.nodeSelection.mode == SelectionMode.NONE)
 		{
 			var processProjection = function(projection:Vector, entityID:Int, nodeIdx:Int)
 			{
@@ -86,7 +86,7 @@ class EntityNodeTool extends EntityTool
 					closestProjection = new LineProjectionData(distance, projection, entityID, nodeIdx);
 			};
 
-			var entities = layer.entities.getGroupForNodes(layerEditor.selection.getSelected());
+			var entities = layer.entities.getGroupForNodes(layerEditor.selection.selected);
 			for (ent in entities)
 			{
 				if (!ent.canAddNode)
@@ -124,11 +124,11 @@ class EntityNodeTool extends EntityTool
 
 	override public function onMouseDown(pos:Vector)
 	{
-		var hovering = layerEditor.nodeSelection.getHovered().length > 0;
+		var hovering = layerEditor.nodeSelection.hovered.length > 0;
 
 		layerEditor.nodeSelection.onMouseDown(pos);
 
-		if (!hovering && layerEditor.nodeSelection.getMode() == SelectionMode.NONE)
+		if (!hovering && layerEditor.nodeSelection.mode == SelectionMode.NONE)
 		{
 			EDITOR.locked = true;
 			EDITOR.level.store("add node(s)");
@@ -136,7 +136,7 @@ class EntityNodeTool extends EntityTool
 			if (!OGMO.ctrl) layer.snapToGrid(pos, pos);
 			if (!OGMO.shift) layerEditor.nodeSelection.clear();
 
-			var entities = layer.entities.getGroupForNodes(layerEditor.selection.getSelected());
+			var entities = layer.entities.getGroupForNodes(layerEditor.selection.selected);
 			for (e in entities)
 			{
 				if (e.canAddNode)
@@ -149,13 +149,13 @@ class EntityNodeTool extends EntityTool
 
 						var newEntry = new EntityNodeID(e.id, closestProjection.nodeIdx);
 						layerEditor.nodeSelection.adjustSelectionIndex(newEntry, true);
-						layerEditor.nodeSelection.addSelected(newEntry);
+						layerEditor.nodeSelection.setSelection([newEntry]);
 					}
 					else
 					{
 						e.addNodeAt(pos);
 						var newEntry = new EntityNodeID(e.id, e.nodes.length - 1);
-						layerEditor.nodeSelection.addSelected(newEntry);
+						layerEditor.nodeSelection.setSelection([newEntry]);
 					}
 				}
 			}
@@ -183,7 +183,7 @@ class EntityNodeTool extends EntityTool
 	override public function keyToolAlt():Int return 1;
 	override function isAvailable():Bool {
 		for (entity in layerEditor.entities.list) {
-			for (e_id in layerEditor.selection.getSelected()) if (entity.id == e_id && entity.template.hasNodes) return true;
+			for (e_id in layerEditor.selection.selected) if (entity.id == e_id && entity.template.hasNodes) return true;
 		}
 		return false;
 	}

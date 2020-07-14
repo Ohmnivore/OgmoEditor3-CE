@@ -7,7 +7,7 @@ class DecalSelectTool extends DecalTool
 	override public function drawOverlay()
 	{
 		var rect = layerEditor.selection.getRect();
-		var mode = layerEditor.selection.getMode();
+		var mode = layerEditor.selection.mode;
 		
 		if (rect != null)
 		{
@@ -28,7 +28,7 @@ class DecalSelectTool extends DecalTool
 		if (OGMO.ctrl)
 			return;
 
-		var selected = layerEditor.selection.getSelected();
+		var selected = layerEditor.selection.selected;
 		if (selected.length == 0)
 			return;
 
@@ -39,7 +39,7 @@ class DecalSelectTool extends DecalTool
 				EDITOR.level.store("flip decal h");
 				for (decal in selected)
 					decal.scale.x = -decal.scale.x;
-				layerEditor.selectedChanged = true;
+				layerEditor.selectionModified = true;
 				EDITOR.dirty();
 			}
 		}
@@ -50,7 +50,7 @@ class DecalSelectTool extends DecalTool
 				EDITOR.level.store("flip decal v");
 				for (decal in selected)
 					decal.scale.y = -decal.scale.y;
-				layerEditor.selectedChanged = true;
+				layerEditor.selectionModified = true;
 				EDITOR.dirty();
 			}
 		}
