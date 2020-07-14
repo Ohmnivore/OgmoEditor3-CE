@@ -149,13 +149,19 @@ class EntityNodeTool extends EntityTool
 
 						var newEntry = new EntityNodeID(e.id, closestProjection.nodeIdx);
 						layerEditor.nodeSelection.adjustSelectionIndex(newEntry, true);
-						layerEditor.nodeSelection.setSelection([newEntry]);
+						if (OGMO.shift)
+							layerEditor.nodeSelection.addSelection([newEntry]);
+						else
+							layerEditor.nodeSelection.setSelection([newEntry]);
 					}
 					else
 					{
 						e.addNodeAt(pos);
 						var newEntry = new EntityNodeID(e.id, e.nodes.length - 1);
-						layerEditor.nodeSelection.setSelection([newEntry]);
+						if (OGMO.shift)
+							layerEditor.nodeSelection.addSelection([newEntry]);
+						else
+							layerEditor.nodeSelection.setSelection([newEntry]);
 					}
 				}
 			}

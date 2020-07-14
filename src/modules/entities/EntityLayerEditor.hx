@@ -599,27 +599,10 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 	private function sortLargestIdxFirst(lhs:EntityNodeID, rhs:EntityNodeID):Int
 	{
 		if (lhs.entityID < rhs.entityID)
-		{
 			return 1;
-		}
 		else if (lhs.entityID == rhs.entityID)
-		{
-			if (lhs.nodeIdx < rhs.nodeIdx)
-			{
-				return 1;
-			}
-			else if (lhs.nodeIdx == rhs.nodeIdx)
-			{
-				return 0;
-			}
-			else
-			{
-				return -1;
-			}
-		}
+			return rhs.nodeIdx - lhs.nodeIdx;
 		else
-		{
 			return -1;
-		}
 	}
 }

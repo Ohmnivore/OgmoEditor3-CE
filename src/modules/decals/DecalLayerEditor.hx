@@ -161,11 +161,12 @@ class DecalLayerSelection extends LevelSelection<Decal>
 
 		EDITOR.level.store("pasted decals");
 
-		var newDecals = [];
+		var layer:DecalLayer = cast layerEditor.layer;
+		var newDecals:Array<Decal> = [];
 		for (decal in clipboard)
 		{
 			var clone = new Decal(decal.position.clone(), decal.path, decal.texture, decal.origin.clone(), decal.scale.clone(), decal.rotation);
-			(cast layerEditor.layer:DecalLayer).decals.push(clone);
+			layer.decals.push(clone);
 			newDecals.push(clone);
 		}
 		if (shift())
@@ -178,17 +179,18 @@ class DecalLayerSelection extends LevelSelection<Decal>
 	{
 		EDITOR.level.store("duplicated decals");
 
-		var newSelection:Array<Decal> = [];
+		var layer:DecalLayer = cast layerEditor.layer;
+		var newDecals:Array<Decal> = [];
 		for (decal in items)
 		{
 			var clone = new Decal(decal.position.clone().add(new Vector(32, 32)), decal.path, decal.texture, decal.origin.clone(), decal.scale.clone(), decal.rotation);
-			(cast layerEditor.layer:DecalLayer).decals.push(clone);
-			newSelection.push(clone);
+			layer.decals.push(clone);
+			newDecals.push(clone);
 		}
 		if (shift())
-			addSelection(newSelection);
+			addSelection(newDecals);
 		else
-			setSelection(newSelection);
+			setSelection(newDecals);
 	}
 
 	override private function toggleMassSelect()
@@ -202,7 +204,7 @@ class DecalLayerSelection extends LevelSelection<Decal>
 		else
 		{
 			var newSelection = [];
-			for (decal in (cast layerEditor.layer:DecalLayer).decals)
+			for (decal in layer.decals)
 				newSelection.push(decal);
 			setSelection(newSelection);
 		}
