@@ -215,6 +215,8 @@ class EntityLayerEditor extends LayerEditor
 
 class EntityLayerSelection extends LevelSelection<Int>
 {
+	public static var clipboard:Array<Entity> = [];
+
 	public var layerEditor:EntityLayerEditor;
 
 	public function new(layerEditor:EntityLayerEditor)
@@ -276,17 +278,52 @@ class EntityLayerSelection extends LevelSelection<Int>
 
 	override private function copy(items:Array<Int>)
 	{
-		// TODO
+		clipboard = [];
+
+		for (id in items)
+		{
+			var ent = layerEditor.entities.getByID(id);
+			var clone = ent.clone();
+			clipboard.push(clone);
+		}
+
+		clipboard.sort(function(lhs, rhs) return lhs.id - rhs.id);
 	}
 
 	override private function cut(items:Array<Int>)
 	{
-		// TODO
+		copy(items);
+
+		EDITOR.level.store('cut entities');
+
+		items = items.copy();
+		var toRemove = [];
+		for (id in items)
+		{
+			toRemove.push(layerEditor.entities.getByID(id));
+			remove(id);
+		}
+		layerEditor.entities.removeList(toRemove);
 	}
 
 	override private function paste()
 	{
-		// TODO
+		if (clipboard.length == 0)
+			return;
+
+		EDITOR.level.store("paste entities");
+
+		if (!shift())
+			selected = [];
+		for (ent in clipboard)
+		{
+			var clone = ent.clone();
+			if (layerEditor.entities.containsID(clone.id))
+				clone.id = layerEditor.layer.downcast(EntityLayer).nextID();
+
+			layerEditor.entities.add(clone);
+			selected.push(clone.id);
+		}
 	}
 
 	override private function duplicate(items:Array<Int>)
