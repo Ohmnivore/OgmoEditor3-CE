@@ -1,6 +1,6 @@
 package modules.decals;
 
-import level.editor.Selection;
+import level.editor.LevelSelection;
 import level.editor.ui.SidePanel;
 import rendering.Texture;
 import level.editor.LayerEditor;
@@ -98,7 +98,7 @@ class DecalLayerEditor extends LayerEditor
 }
 
 
-class DecalLayerSelection extends Selection<Decal>
+class DecalLayerSelection extends LevelSelection<Decal>
 {
 	public static var clipboard:Array<Decal> = [];
 
@@ -115,35 +115,15 @@ class DecalLayerSelection extends Selection<Decal>
 		return lhs == rhs;
 	}
 
-	override private function ctrl():Bool
+	override private function getOverlap(rect:Rectangle):Array<Decal>
 	{
-		return OGMO.ctrl;
-	}
-
-	override private function shift():Bool
-	{
-		return OGMO.shift;
-	}
-
-	override private function dirty()
-	{
-		EDITOR.dirty();
-	}
-
-	override private function overlayDirty()
-	{
-		EDITOR.overlayDirty();
+		var layer:DecalLayer = cast layerEditor.layer;
+		return layer.getRect(rect);
 	}
 
 	override private function snapToGrid(pos: Vector, into: Vector)
 	{
 		layerEditor.layer.snapToGrid(pos, into);
-	}
-
-	override private function getOverlap(rect:Rectangle):Array<Decal>
-	{
-		var layer:DecalLayer = cast layerEditor.layer;
-		return layer.getRect(rect);
 	}
 
 	override private function selectedChanged()
@@ -185,7 +165,8 @@ class DecalLayerSelection extends Selection<Decal>
 
 		EDITOR.level.store("pasted decals");
 
-		selected = [];
+		if (!shift())
+			selected = [];
 		for (decal in clipboard)
 		{
 			var clone = new Decal(decal.position.clone(), decal.path, decal.texture, decal.origin.clone(), decal.scale.clone(), decal.rotation);
@@ -205,7 +186,10 @@ class DecalLayerSelection extends Selection<Decal>
 			(cast layerEditor.layer:DecalLayer).decals.push(clone);
 			newSelection.push(clone);
 		}
-		selected = newSelection;
+		if (shift())
+			selected = selected.concat(newSelection);
+		else
+			selected = newSelection;
 	}
 
 	override private function toggleMassSelect()

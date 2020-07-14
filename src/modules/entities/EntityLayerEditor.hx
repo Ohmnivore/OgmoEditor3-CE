@@ -1,6 +1,6 @@
 package modules.entities;
 
-import level.editor.Selection;
+import level.editor.LevelSelection;
 import level.editor.ui.PropertyDisplay.PropertyDisplayMode;
 import level.editor.ui.SidePanel;
 import level.editor.LayerEditor;
@@ -10,11 +10,11 @@ import rendering.FloatingHTML.PositionAlignH;
 
 class EntityLayerEditor extends LayerEditor
 {
-	public var selection:EntityGroup = new EntityGroup();
-	public var hovered:EntityGroup = new EntityGroup();
 	public var brush:Int = -1;
 	public var entities(get, never):EntityList;
+	public var selection:EntityLayerSelection;
 	public var nodeSelection:EntityLayerNodeSelection;
+	public var selectionChanged:Bool = false;
 
 	private var entityTexts = new Map<Int, FloatingHTMLPropertyDisplay>();
 
@@ -22,17 +22,19 @@ class EntityLayerEditor extends LayerEditor
 	{
 		super(id);
 		brush = 0;
+		selection = new EntityLayerSelection(this);
 		nodeSelection = new EntityLayerNodeSelection(this);
 	}
 
 	override function draw()
 	{
 		// Draw Hover
-		if (active && hovered.amount > 0)
+		if (active && selection.getHovered().length > 0)
 		{
-			for (ent in entities.getGroup(hovered)) ent.drawHoveredBox();
+			for (ent in entities.getGroup(selection.getHovered()))
+				ent.drawHoveredBox();
 		}
-		if (active)
+		if (active && nodeSelection.getHovered().length > 0)
 		{
 			for (node in nodeSelection.getHovered())
 			{
@@ -109,17 +111,19 @@ class EntityLayerEditor extends LayerEditor
 
 	override function drawOverlay()
 	{
-		if (selection.amount <= 0) return;
-		for (entity in entities.getGroup(selection)) entity.drawSelectionBox();
+		if (selection.getSelected().length <= 0)
+			return;
+		for (entity in entities.getGroup(selection.getSelected()))
+			entity.drawSelectionBox();
 	}
 
 	override function loop()
 	{
-		if (selection.changed)
+		if (selectionChanged)
 			nodeSelection.clear();
 		else
 			return;
-		selection.changed = false;
+		selectionChanged = false;
 		selectionPanel.refresh();
 		EDITOR.dirty();
 	}
@@ -156,30 +160,19 @@ class EntityLayerEditor extends LayerEditor
 			if (nodeSelection.onKeyDown(key))
 				return;
 
+		if (selection.onKeyDown(key))
+			return;
+
+		if (selection.getSelected().length == 0)
+			return;
+
 		switch (key)
 		{
-			case Keys.Backspace, Keys.Delete:
-				if (selection.amount <= 0) return;
-				EDITOR.level.store('delete entities');
-				EDITOR.dirty();
-				entities.removeAndClearGroup(selection);
-			case Keys.A:
-				if (!OGMO.ctrl) return;
-				selection.set(entities.list);
-				EDITOR.dirty();
-			case Keys.D:
-				if (!OGMO.ctrl || selection.amount <= 0) return;
-				EDITOR.level.store('duplicate entities');
-				var copies:Array<Entity> = [ for (e in entities.getGroup(selection)) e.duplicate(layer.downcast(EntityLayer).nextID(), template.gridSize.x * 2, template.gridSize.y * 2) ];
-				entities.addList(copies);
-				if (OGMO.shift) selection.add(copies);
-				else selection.set(copies);
-				EDITOR.dirty();
 			case Keys.F:
 				// Swap selected entities' positions with their first nodes
-				if (!OGMO.ctrl || !OGMO.shift || selection.amount <= 0) return;
+				if (!OGMO.ctrl || !OGMO.shift) return;
 				var swapped = false;
-				for (e in entities.getGroup(selection))
+				for (e in entities.getGroup(selection.getSelected()))
 				{
 					if (!swapped)
 					{
@@ -192,16 +185,16 @@ class EntityLayerEditor extends LayerEditor
 					e.nodes[0] = temp;
 				}
 			case Keys.H:
-				if (OGMO.ctrl || selection.amount <= 0) return;
+				if (OGMO.ctrl) return;
 				EDITOR.level.store("flip entity h");
-				for (e in entities.getGroup(selection)) if (e.template.canFlipX) e.flippedX = !e.flippedX;
-				selection.changed = true;
+				for (e in entities.getGroup(selection.getSelected())) if (e.template.canFlipX) e.flippedX = !e.flippedX;
+				selectionChanged = true;
 				EDITOR.dirty();
 			case Keys.V:
-				if (OGMO.ctrl || selection.amount <= 0) return;
+				if (OGMO.ctrl) return;
 				EDITOR.level.store("flip entity v");
-				for (e in entities.getGroup(selection)) if (e.template.canFlipY) e.flippedY = !e.flippedY;
-				selection.changed = true;
+				for (e in entities.getGroup(selection.getSelected())) if (e.template.canFlipY) e.flippedY = !e.flippedY;
+				selectionChanged = true;
 				EDITOR.dirty();
 		}
 	}
@@ -217,6 +210,132 @@ class EntityLayerEditor extends LayerEditor
 			for (text in entityTexts)
 				text.setOpacity(0);
 		return super.set_visible(newVisible);
+	}
+}
+
+class EntityLayerSelection extends LevelSelection<Int>
+{
+	public var layerEditor:EntityLayerEditor;
+
+	public function new(layerEditor:EntityLayerEditor)
+	{
+		super();
+		this.layerEditor = layerEditor;
+	}
+
+	public function trim(entities:EntityList):Void
+	{
+		var i = 0;
+		while (i < selected.length - 1)
+		{
+			if (!entities.containsID(selected[i]))
+			{
+				selected.splice(i, 1);
+				i--;
+			}
+			i++;
+		}
+	}
+
+	override private function isEqual(lhs:Int, rhs:Int)
+	{
+		return lhs == rhs;
+	}
+
+	override private function snapToGrid(pos: Vector, into: Vector)
+	{
+		layerEditor.layer.snapToGrid(pos, into);
+	}
+
+	override private function getOverlap(rect:Rectangle):Array<Int>
+	{
+		var ret = [];
+		var ents = layerEditor.entities.getRect(rect);
+		for (ent in ents)
+			ret.push(ent.id);
+		return ret;
+	}
+
+	override private function selectedChanged()
+	{
+		layerEditor.selectionChanged = true;
+	}
+
+	override private function move(items:Array<Int>, delta:Vector, firstChange:Bool)
+	{
+		if (firstChange)
+			EDITOR.level.store('move entities');
+
+		for (id in items)
+		{
+			var ent = layerEditor.entities.getByID(id);
+			if (ent != null)
+				ent.move(delta);
+		}
+	}
+
+	override private function copy(items:Array<Int>)
+	{
+		// TODO
+	}
+
+	override private function cut(items:Array<Int>)
+	{
+		// TODO
+	}
+
+	override private function paste()
+	{
+		// TODO
+	}
+
+	override private function duplicate(items:Array<Int>)
+	{
+		EDITOR.level.store('duplicate entities');
+
+		var newSelection:Array<Int> = [];
+		for (id in items)
+		{
+			var toAdd = [];
+			var ent = layerEditor.entities.getByID(id);
+			var copy = ent.duplicate(layerEditor.layer.downcast(EntityLayer).nextID(), layerEditor.template.gridSize.x * 2, layerEditor.template.gridSize.y * 2);
+
+			toAdd.push(copy);
+			newSelection.push(copy.id);
+			layerEditor.entities.addList(toAdd);
+		}
+		if (shift())
+			selected = selected.concat(newSelection);
+		else
+			selected = newSelection;
+	}
+
+	override private function toggleMassSelect()
+	{
+		if (selected.length == layerEditor.entities.count)
+		{
+			selected = [];
+		}
+		else
+		{
+			selected = [];
+			for (ent in layerEditor.entities.list)
+				selected.push(ent.id);
+		}
+	}
+
+	override private function delete(items:Array<Int>)
+	{
+		EDITOR.level.store('delete entities');
+
+		items = items.copy();
+		var toRemove = [];
+		for (id in items)
+		{
+			toRemove.push(layerEditor.entities.getByID(id));
+			remove(id);
+		}
+		layerEditor.entities.removeList(toRemove);
 	}
 }
 
@@ -244,7 +363,7 @@ class EntityNodeID
 	}
 }
 
-class EntityLayerNodeSelection extends Selection<EntityNodeID>
+class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 {
 	public static var clipboard:Array<Vector> = [];
 
@@ -275,26 +394,6 @@ class EntityLayerNodeSelection extends Selection<EntityNodeID>
 		return lhs.entityID == rhs.entityID && lhs.nodeIdx == rhs.nodeIdx;
 	}
 
-	override private function ctrl():Bool
-	{
-		return OGMO.ctrl;
-	}
-
-	override private function shift():Bool
-	{
-		return OGMO.shift;
-	}
-
-	override private function dirty()
-	{
-		EDITOR.dirty();
-	}
-
-	override private function overlayDirty()
-	{
-		EDITOR.overlayDirty();
-	}
-
 	override private function snapToGrid(pos: Vector, into: Vector)
 	{
 		layerEditor.layer.snapToGrid(pos, into);
@@ -304,7 +403,7 @@ class EntityLayerNodeSelection extends Selection<EntityNodeID>
 	{
 		var ret = [];
 
-		var entities = layerEditor.entities.getGroupForNodes(layerEditor.selection);
+		var entities = layerEditor.entities.getGroupForNodes(layerEditor.selection.getSelected());
 		for (ent in entities)
 		{
 			if (ent.checkRect(rect))
@@ -342,7 +441,7 @@ class EntityLayerNodeSelection extends Selection<EntityNodeID>
 		}
 	}
 
-	override private function copy(items:Array<EntityNodeID>) // TODO
+	override private function copy(items:Array<EntityNodeID>)
 	{
 		clipboard = [];
 
@@ -395,6 +494,9 @@ class EntityLayerNodeSelection extends Selection<EntityNodeID>
 		var ent = layerEditor.entities.getByID(lastSelected.entityID);
 		if (ent != null)
 		{
+			if (!shift())
+				selected = [];
+
 			for (i in 0...clipboard.length)
 			{
 				var idx = lastSelected.nodeIdx + 1 + i;
@@ -416,7 +518,7 @@ class EntityLayerNodeSelection extends Selection<EntityNodeID>
 	override private function toggleMassSelect()
 	{
 		var sumNodes = 0;
-		var entities = layerEditor.entities.getGroupForNodes(layerEditor.selection);
+		var entities = layerEditor.entities.getGroupForNodes(layerEditor.selection.getSelected());
 		for (ent in entities)
 			sumNodes += ent.nodes.length + 1;
 

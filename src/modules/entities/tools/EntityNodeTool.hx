@@ -86,7 +86,7 @@ class EntityNodeTool extends EntityTool
 					closestProjection = new LineProjectionData(distance, projection, entityID, nodeIdx);
 			};
 
-			var entities = layer.entities.getGroupForNodes(layerEditor.selection);
+			var entities = layer.entities.getGroupForNodes(layerEditor.selection.getSelected());
 			for (ent in entities)
 			{
 				if (!ent.canAddNode)
@@ -136,7 +136,7 @@ class EntityNodeTool extends EntityTool
 			if (!OGMO.ctrl) layer.snapToGrid(pos, pos);
 			if (!OGMO.shift) layerEditor.nodeSelection.clear();
 
-			var entities = layer.entities.getGroupForNodes(layerEditor.selection);
+			var entities = layer.entities.getGroupForNodes(layerEditor.selection.getSelected());
 			for (e in entities)
 			{
 				if (e.canAddNode)
@@ -183,7 +183,7 @@ class EntityNodeTool extends EntityTool
 	override public function keyToolAlt():Int return 1;
 	override function isAvailable():Bool {
 		for (entity in layerEditor.entities.list) {
-			for (e_id in layerEditor.selection.ids) if (entity.id == e_id && entity.template.hasNodes) return true;
+			for (e_id in layerEditor.selection.getSelected()) if (entity.id == e_id && entity.template.hasNodes) return true;
 		}
 		return false;
 	}

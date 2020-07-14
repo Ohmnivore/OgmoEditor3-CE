@@ -60,7 +60,7 @@ class EntityList
 		{
 			list.splice(n, 1);
 			var layerEditor:EntityLayerEditor = cast EDITOR.layerEditors[this.layer.id];
-			layerEditor.selection.remove(entity);
+			layerEditor.selection.remove(entity.id);
 		}
 	}
 
@@ -70,23 +70,12 @@ class EntityList
 		var e = list[index];
 		list.splice(index, 1);
 		var layerEditor:EntityLayerEditor = cast EDITOR.layerEditors[this.layer.id];
-		layerEditor.selection.remove(e);
+		layerEditor.selection.remove(e.id);
 	}
 
 	public function removeList(entities:Array<Entity>)
 	{
 		for (entity in entities) remove(entity);
-	}
-
-	public function removeAndClearGroup(group:EntityGroup)
-	{
-		for (id in group.ids)
-		{
-			var n = indexOf(id);
-			if (n != -1) list.splice(n, 1);
-		}
-
-		group.clear();
 	}
 
 	public function getByID(id:Int):Entity
@@ -95,14 +84,14 @@ class EntityList
 		return n == -1 ? null : list[n];
 	}
 
-	public function getGroup(group:EntityGroup):Array<Entity>
+	public function getGroup(ids:Array<Int>, isOrdered:Bool = false):Array<Entity>
 	{
 		var last = -1;
 		var ents:Array<Entity> = [];
 
-		for (id in group.ids)
+		for (id in ids)
 		{
-			var n = indexOf(id, last + 1);
+			var n = indexOf(id, isOrdered ? last + 1 : null);
 			if (n == -1) continue;
 			last = n;
 			ents.push(list[n]);
@@ -111,14 +100,14 @@ class EntityList
 		return ents;
 	}
 
-	public function getGroupForNodes(group:EntityGroup):Array<Entity>
+	public function getGroupForNodes(ids:Array<Int>, isOrdered:Bool = false):Array<Entity>
 	{
 		var last = -1;
 		var ents:Array<Entity> = [];
 
-		for (id in group.ids)
+		for (id in ids)
 		{
-			var n = indexOf(id, last + 1);
+			var n = indexOf(id, isOrdered ? last + 1 : null);
 			if (n == -1) continue;
 			last = n;
 			if (list[n].template.hasNodes) ents.push(list[n]);

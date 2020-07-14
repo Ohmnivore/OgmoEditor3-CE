@@ -23,7 +23,7 @@ class EntityResizeTool extends EntityTool
 
 	override public function onMouseDown(pos:Vector)
 	{
-		entities = layer.entities.getGroup(layerEditor.selection);
+		entities = layer.entities.getGroup(layerEditor.selection.getSelected());
 
 		if (entities.length == 0) return;
 		pos.clone(mousePos);
@@ -52,7 +52,7 @@ class EntityResizeTool extends EntityTool
 	override public function onMouseUp(pos:Vector)
 	{
 		if (!resizing) return;
-		layerEditor.selection.changed = true;
+		layerEditor.selectionChanged = true;
 		resizing = false;
 		EDITOR.locked = false;
 		EDITOR.overlayDirty();
@@ -61,7 +61,7 @@ class EntityResizeTool extends EntityTool
 	override public function onRightDown(pos:Vector)
 	{
 		var changed = false;
-		for (entity in layer.entities.getGroup(layerEditor.selection)) if (!entity.size.equals(entity.template.size))
+		for (entity in layer.entities.getGroup(layerEditor.selection.getSelected())) if (!entity.size.equals(entity.template.size))
 		{
 			if (!changed)
 			{
@@ -70,7 +70,7 @@ class EntityResizeTool extends EntityTool
 			}
 			entity.resetSize();
 		}
-		layerEditor.selection.changed = true;
+		layerEditor.selectionChanged = true;
 		EDITOR.dirty();
 	}
 
@@ -96,7 +96,7 @@ class EntityResizeTool extends EntityTool
 			var diff = new Vector(pos.x - start.x, pos.y - start.y);
 			for (e in entities) e.resize(diff);
 
-			layerEditor.selection.changed = true;
+			layerEditor.selectionChanged = true;
 			EDITOR.dirty();
 			pos.clone(lastPos);
 		}
@@ -109,7 +109,7 @@ class EntityResizeTool extends EntityTool
 	override public function keyToolShift():Int return 3;
 	override function isAvailable():Bool {
 		for (entity in layerEditor.entities.list) {
-			for (e_id in layerEditor.selection.ids) if (entity.id == e_id && (entity.template.resizeableX || entity.template.resizeableY)) return true;
+			for (e_id in layerEditor.selection.getSelected()) if (entity.id == e_id && (entity.template.resizeableX || entity.template.resizeableY)) return true;
 		}
 		return false;
 	}

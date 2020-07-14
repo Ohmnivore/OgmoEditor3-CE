@@ -49,7 +49,7 @@ class EntitySelectionPanel extends SidePanel
 	override public function refresh()
 	{
 		var ent_layer:EntityLayer = cast layerEditor.layer;
-		var sel = ent_layer.entities.getGroup(layerEditor.selection);
+		var sel = ent_layer.entities.getGroup(layerEditor.selection.getSelected());
 
 		// list of entities
 		{
@@ -85,10 +85,20 @@ class EntitySelectionPanel extends SidePanel
 
 				item.onclick = function (_)
 				{
+					var ids = [];
+					for (ent in arr)
+						ids.push(ent.id);
+
 					if (OGMO.ctrl)
-						layerEditor.selection.toggle(arr);
+					{
+						layerEditor.selection.toggleSelection(ids);
+					}
 					else
-						layerEditor.selection.set(arr);
+					{
+						layerEditor.selection.clear();
+						layerEditor.selection.addSelection(ids);
+					}
+					layerEditor.selectionChanged = true;
 					EDITOR.dirty();
 				};
 			}
