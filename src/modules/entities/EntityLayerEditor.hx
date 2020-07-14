@@ -475,6 +475,10 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 		var targetId = items[items.length - 1].entityID;
 		var target = getByID(targetId);
 
+		items = items.copy();
+		items.sort(sortLargestIdxFirst);
+		items.reverse();
+
 		for (item in items)
 		{
 			if (item.entityID == target.id)
