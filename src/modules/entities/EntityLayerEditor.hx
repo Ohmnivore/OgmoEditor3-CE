@@ -267,7 +267,7 @@ class EntityLayerSelection extends LevelSelection<Int>
 
 		for (id in items)
 		{
-			var ent = layerEditor.entities.getByID(id);
+			var ent = getByID(id);
 			if (ent != null)
 				ent.move(delta);
 		}
@@ -281,7 +281,7 @@ class EntityLayerSelection extends LevelSelection<Int>
 
 		for (id in items)
 		{
-			var ent = layerEditor.entities.getByID(id);
+			var ent = getByID(id);
 			var clone = ent.clone();
 			clipboard.push(clone);
 		}
@@ -329,7 +329,7 @@ class EntityLayerSelection extends LevelSelection<Int>
 		for (id in items)
 		{
 			var toAdd = [];
-			var ent = layerEditor.entities.getByID(id);
+			var ent = getByID(id);
 			var copy = ent.duplicate(layerEditor.layer.downcast(EntityLayer).nextID(), layerEditor.template.gridSize.x * 2, layerEditor.template.gridSize.y * 2);
 
 			toAdd.push(copy);
@@ -368,9 +368,16 @@ class EntityLayerSelection extends LevelSelection<Int>
 	{
 		var toRemove = [];
 		for (id in items)
-			toRemove.push(layerEditor.entities.getByID(id));
+			toRemove.push(getByID(id));
 		removeSelection(items);
 		layerEditor.entities.removeList(toRemove);
+	}
+
+	// Util
+
+	private function getByID(id:Int):Entity
+	{
+		return layerEditor.entities.getByID(id);
 	}
 }
 
@@ -412,18 +419,6 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 		canDragSelect = false;
 	}
 
-	public function adjustSelectionIndex(item:EntityNodeID, insert:Bool)
-	{
-		var increment = insert ? 1 : -1;
-
-		for (sel in selected)
-			if (sel.entityID == item.entityID && sel.nodeIdx >= item.nodeIdx)
-				sel.nodeIdx += increment;
-		for (hov in hovered)
-			if (hov.entityID == item.entityID && hov.nodeIdx >= item.nodeIdx)
-				hov.nodeIdx += increment;
-	}
-
 	override private function isEqual(lhs:EntityNodeID, rhs:EntityNodeID)
 	{
 		return lhs.entityID == rhs.entityID && lhs.nodeIdx == rhs.nodeIdx;
@@ -462,7 +457,7 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 
 		for (item in items)
 		{
-			var ent = layerEditor.entities.getByID(item.entityID);
+			var ent = getByID(item.entityID);
 			if (ent != null)
 			{
 				var pos = item.getNodePosition(ent);
@@ -478,7 +473,7 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 		clipboard = [];
 
 		var targetId = items[items.length - 1].entityID;
-		var target = layerEditor.entities.getByID(targetId);
+		var target = getByID(targetId);
 
 		for (item in items)
 		{
@@ -496,7 +491,7 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 		copy(items);
 
 		var targetId = items[items.length - 1].entityID;
-		var target = layerEditor.entities.getByID(targetId);
+		var target = getByID(targetId);
 
 		EDITOR.level.store("cut nodes");
 
@@ -505,7 +500,7 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 
 		for (item in items)
 		{
-			var ent = layerEditor.entities.getByID(item.entityID);
+			var ent = getByID(item.entityID);
 			if (ent != null && ent == target && item.nodeIdx != EntityNodeID.ROOT_NODE_ID)
 			{
 				remove(item);
@@ -523,7 +518,7 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 		EDITOR.level.store("paste nodes");
 
 		var lastSelected = selected[selected.length - 1];
-		var ent = layerEditor.entities.getByID(lastSelected.entityID);
+		var ent = getByID(lastSelected.entityID);
 		if (ent != null)
 		{
 			var newSelection = [];
@@ -584,7 +579,7 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 
 		for (item in items)
 		{
-			var ent = layerEditor.entities.getByID(item.entityID);
+			var ent = getByID(item.entityID);
 			if (ent != null && item.nodeIdx != EntityNodeID.ROOT_NODE_ID)
 			{
 				remove(item);
@@ -595,6 +590,23 @@ class EntityLayerNodeSelection extends LevelSelection<EntityNodeID>
 	}
 
 	// Util
+
+	private function getByID(id:Int):Entity
+	{
+		return layerEditor.entities.getByID(id);
+	}
+
+	public function adjustSelectionIndex(item:EntityNodeID, insert:Bool)
+	{
+		var increment = insert ? 1 : -1;
+
+		for (sel in selected)
+			if (sel.entityID == item.entityID && sel.nodeIdx >= item.nodeIdx)
+				sel.nodeIdx += increment;
+		for (hov in hovered)
+			if (hov.entityID == item.entityID && hov.nodeIdx >= item.nodeIdx)
+				hov.nodeIdx += increment;
+	}
 
 	private function sortLargestIdxFirst(lhs:EntityNodeID, rhs:EntityNodeID):Int
 	{
